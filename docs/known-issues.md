@@ -80,3 +80,14 @@ in the foreground. Each widening creates a new `openclaw nodes approve` request.
 - The config repo working trees inside the envs created on 2026-10-04 are dirty (`openclaw.json`, `workspace/AGENTS.md`
   patched on the phone; the same changes are now committed upstream in the config repo / aohp-agents) — `git status`
   inside `/root/.openclaw` will show them; `git checkout -- .` + `aohp-update` is safe.
+
+## Units (build-5 / dodge-3)
+
+- Not implemented: socket activation, `User=`, `Type=notify`/`forking` (load error), per-unit cgroup keys, `OnCalendar`
+  outside `minutely|hourly|daily|weekly|*-*-* HH:MM:SS|HH:MM`, `systemctl edit/mask/--user`, `journalctl -f` (polled).
+  Timers are not persistent across an env stop unless `Persistent=yes`; the start limit counts automatic restarts only.
+- Unit logs rotate only when the unit (re)starts (1 MB → `.log.1`); a long-running chatty service grows its log until then.
+- The CLI's `aohp unit <env> start X` exits 1 when X was skipped by a `ConditionPathExists` (systemd would exit 0).
+- The daemon-side unit manager was exercised on Cuttlefish (own test daemon, same source) and the Driver/CLI/shim path through
+  a mock bridge; the Binder `unitControl` path and the Units card were compile-verified only before release (no phone was
+  flashed for this build). Report anything odd in the Harness Units card with `adb logcat -s aohp-containerd AohpContainer`.

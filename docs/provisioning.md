@@ -118,7 +118,10 @@ Every later widening of the node's command surface (toggling Camera etc.) produc
 ## D. Autostart (survives reboots)
 
 Harness → env card → **Autostart** switch (on by default when the wizard created the env; **off** for an env created
-with `aohp sandbox create` — flip it in the UI). Done when, after `adb reboot` with no app opened, `ss -ltnp` shows
+with `aohp sandbox create` — flip it in the UI). Since build-5 / dodge build-3 (Driver 0.4.0) Autostart means
+**env-start**: containerd starts the env's *enabled units* (`/etc/aohp/system/aohp.target.wants`, see
+[units.md](units.md)) in dependency order and supervises them (`Restart=on-failure` for the gateway, timers); envs
+without unit files keep the 0.3.0 replay of recorded services. Done when, after `adb reboot` with no app opened, `ss -ltnp` shows
 `:6666` (org.aohp.driver) and `:18789` (gateway), `curl …/health` is live (~60 s after boot), and the OpenClaw app
 opens straight to *Online* without re-pairing. Verified on the Pixel 6 (AOHP GSI, 2026-10-02).
 
@@ -135,8 +138,15 @@ mkdir -p /root/.ssh && chmod 700 /root/.ssh && cat id_ed25519.pub >> /root/.ssh/
 wg0-sshd-startup.sh; cat /var/run/aohp-cron/net-watchdog.json     # expect exitCode 0, sshdPid set, handshakeAgeSec small
 ```
 
-Then from the host, once: `aohp sandbox svc-start -n <env> -i net-watchdog -C "/usr/local/bin/wg0-sshd-startup.sh --loop 300"`.
-The Driver records the service and restarts it (before the gateway) on every boot while the env's Autostart is on;
+Then, **with build-5 / dodge build-3 and templates-20261005c**, inside the env:
+`systemctl enable --now wg0 sshd net-watchdog.timer` (units: `wg0.service` oneshot, `sshd.service` with
+`Restart=on-failure`, `net-watchdog.timer` = one `wg0-sshd-startup.sh` pass 2 min after env start then every 5 min;
+`systemctl list-timers`, `journalctl -u sshd`). They come back on every boot through Autostart (env-start), before the
+gateway (`After=wg0.service sshd.service`). See [units.md](units.md) for the migration of an env that still runs the
+hand-started pair.
+Pre-units images (build-4 / dodge-2) instead: from the host, once,
+`aohp sandbox svc-start -n <env> -i net-watchdog -C "/usr/local/bin/wg0-sshd-startup.sh --loop 300"`; the Driver
+records the service and restarts it (before the gateway) on every boot while the env's Autostart is on;
 `aohp sandbox svc-list -n <env>` shows `net-watchdog` and `openclaw-gateway`. The watchdog re-cycles wg0 when the
 `ip rule … lookup 51820` for an AllowedIPs subnet disappears (Android ignores the main table) and restarts sshd if it
 died. With the build-4 sepolicy sshd needs no `LD_PRELOAD` shim.
