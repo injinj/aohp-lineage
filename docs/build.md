@@ -25,7 +25,7 @@ repo sync -c -j8 --no-tags --no-clone-bundle --optimized-fetch --prune --retry-f
 ## 2. Fetch the prebuilts that are not in git
 
 ```bash
-vendor/aohp/fetch-prebuilts.sh            # Debian template + AOHPDriver.apk + OpenClawAndroid.apk + stock prebuilts, all sha256-verified
+vendor/aohp/fetch-prebuilts.sh            # Debian template (pinned TEMPLATES_TAG, currently templates-20261005b) + AOHPDriver.apk (v0.3.0) + OpenClawAndroid.apk + stock prebuilts, all sha256-verified
 # vendor/aohp/fetch-prebuilts.sh fedora arch   # optional extra templates; aohp.mk enables them when the file exists
 ```
 

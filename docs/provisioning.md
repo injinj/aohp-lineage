@@ -122,7 +122,26 @@ with `aohp sandbox create` — flip it in the UI). Done when, after `adb reboot`
 `:6666` (org.aohp.driver) and `:18789` (gateway), `curl …/health` is live (~60 s after boot), and the OpenClaw app
 opens straight to *Online* without re-pairing. Verified on the Pixel 6 (AOHP GSI, 2026-10-02).
 
-## E. Updating the agent layer / OpenClaw inside the env
+## E. Optional: WireGuard tunnel + sshd into the env (templates-20261005b, Driver ≥ 0.3.0)
+
+Lets a host reach the container over a VPN (`ssh -p 2222 root@<wg0 addr>`; scp works, no bridge/base64 limits) — the
+way the Pixel 6 env is reached from chex. Everything is installed in the template, nothing is active until you do this
+inside the env (Terminal tab, or `aohp sandbox exec <env> …` with a base64 one-liner):
+
+```bash
+install -m 600 wg0.conf /etc/wireguard/wg0.conf        # [Interface] Address = 10.100.0.5/24 …, [Peer] … AllowedIPs = 10.100.0.0/24, 10.4.4.0/24
+sed 's/@LISTEN_ADDRESS@/10.100.0.5/' /opt/aohp-agents/net/10-aohp.conf.template > /etc/ssh/sshd_config.d/10-aohp.conf
+mkdir -p /root/.ssh && chmod 700 /root/.ssh && cat id_ed25519.pub >> /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys
+wg0-sshd-startup.sh; cat /var/run/aohp-cron/net-watchdog.json     # expect exitCode 0, sshdPid set, handshakeAgeSec small
+```
+
+Then from the host, once: `aohp sandbox svc-start -n <env> -i net-watchdog -C "/usr/local/bin/wg0-sshd-startup.sh --loop 300"`.
+The Driver records the service and restarts it (before the gateway) on every boot while the env's Autostart is on;
+`aohp sandbox svc-list -n <env>` shows `net-watchdog` and `openclaw-gateway`. The watchdog re-cycles wg0 when the
+`ip rule … lookup 51820` for an AllowedIPs subnet disappears (Android ignores the main table) and restarts sshd if it
+died. With the build-4 sepolicy sshd needs no `LD_PRELOAD` shim.
+
+## F. Updating the agent layer / OpenClaw inside the env
 
 `aohp sandbox exec oc aohp-update` (= `git pull` of `/opt/aohp-agents` + re-run the installers listed in your
 config repo's `aohp/agents`); `npm i -g openclaw@<version>` for OpenClaw itself. A new ROM build (new template) does not

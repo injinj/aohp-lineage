@@ -1,4 +1,4 @@
-# Known issues and caveats (2026-10-04 builds)
+# Known issues and caveats (2026-10-05 builds: oriole build-4, dodge build-2)
 
 ## Dev-build security posture
 `WITH_ADB_INSECURE=true`: adb is on at first boot with **no authorization prompt**, in Android and in recovery
@@ -7,24 +7,37 @@ test devices; rebuild without the knob (and drop the `persist.sys.usb.config=adb
 anything else. `ro.secure=1` is unchanged, so `adb root` still needs **Developer options → Rooted debugging**
 (Lineage's `adbroot_service`; "ADB Root access is disabled by system setting" until then). Not needed for AOHP work.
 
-## AOHP-domain SELinux denials on the OnePlus 13 (harmless, noisy)
-Pixel 6: zero AOHP denials. OnePlus 13: none at boot, then from the moment a container runs, all in
-`scontext=u:r:aohp_container_daemon` (= processes inside the env). Counts from the first 4 minutes
-(`op13-avc-classification.log`):
+## SELinux: what the 2026-10-05 builds fixed, and what is still denied
+sepolicy commit `38feaf914` (`private/aohp_container_daemon.te`) grants the container domain:
 
-| count | denial | who | note |
-|---|---|---|---|
-| 144 | `read` `proc_stat:file` | `openclaw-gatewa` | the gateway reads `/proc/stat` ~1/s for load; grows to ~2000 lines/20 min and keeps filling the audit log |
-| 65 | `create` `anon_inode` (`[io_uring]`) | Node threads (MainThread/WorkerThread/DelayedTaskSche/V8Worker) | Node 24's libuv probing io_uring, falls back to the threadpool; not seen on the Pixel's 6.1 kernel |
-| 11 | `read` `proc_filesystems` | `sed`, `install` | bootstrap/apt tooling |
-| 4 | capability `sys_ptrace` | `pgrep` | process listing over /proc |
-| 4 / 3 / 2 | `read` `proc_version` / `proc_overcommit_memory` / `proc_uptime` | openclaw / python3 / node | diagnostics |
-| 3 | `ioctl` 0x9409 on `aohp_container_data_file` | `install`, `mkdir`, `ls` | FICLONE / FS_IOC_* probes by coreutils, fall back to copy |
+- `self:netlink_audit_socket` — libaudit users (**sshd**, PAM, sudo, su) got EPERM on the audit socket and sshd dropped
+  every interactive session; the Pixel 6 env needed an `LD_PRELOAD libnoaudit.so` shim. **Not needed any more.**
+- the dodge noise from `op13-avc-classification.log`: `proc_stat` (144×, gateway ~1/s), `proc_filesystems`,
+  `proc_version`, `proc_uptime`, `proc_overcommit_memory` (+ `proc_loadavg`) reads; `anon_inode` create (65×,
+  libuv io_uring probe → `io_uring_use()`); `FICLONE` 0x9409 (+ FICLONERANGE, FIDEDUPERANGE, TCGETS2, FS_IOC_GETFLAGS/
+  SETFLAGS/FIEMAP) on container files;
+- `sysfs_dm` dir search + file read — `dnf` (Fedora template) reads `/sys/block/dm-*/queue/rotational`.
 
-Nothing failed because of them (bootstrap, gateway, model calls, pairing all worked). Fix = `allow aohp_container_daemon
-proc_*:file r_file_perms;` + `anon_inode create` in the AOHP sepolicy (upstream issue tracked in the aohp-os sepolicy
-PR set). The ~90 non-AOHP denials on dodge (mediacodec/default_prop, vendor_location, oplus daemons, `shell` from our own
-`service list`/`ss`) are stock Lineage/vendor noise.
+**Still denied (by design):** `self:capability sys_ptrace` — `pgrep -f <host pid>` / reading another uid's
+`/proc/<pid>/cmdline` inside the container. Lineage's `private/domain.te` neverallows `sys_ptrace` for every domain
+outside a fixed allowlist (vold, dumpstate, storaged, system_server, …); we do not weaken neverallows. `pgrep -x <comm>`,
+`pidof`, `kill -0` work (the pid-probe fix). Expect 4 such denials per container start; harmless.
+
+The ~90 non-AOHP denials on dodge (mediacodec/default_prop, vendor_location, oplus daemons, `shell` from our own
+`service list`/`ss`) are stock Lineage/vendor noise. Verify a flashed build: `logcat -b all -d | grep avc | grep aohp_container`
+should show only the sys_ptrace lines after bootstrap + gateway start.
+
+## Network services in the env (WireGuard + sshd)
+The templates-20261005b Debian/Fedora/Arch templates ship `wireguard-tools` and `openssh-server` **installed but
+inactive** plus `/opt/aohp-agents/net/` (`wg0-sshd-startup.sh` watchdog, `10-aohp.conf.template` sshd drop-in). Recipe
+(also in [provisioning.md](provisioning.md) §E): put `wg0.conf` in `/etc/wireguard/`, copy the drop-in with the wg0
+address as ListenAddress, add your pubkey, run `wg0-sshd-startup.sh` once, then register it as a service so the Driver's
+Autostart restarts it at boot:
+`aohp sandbox svc-start -n <env> -i net-watchdog -C "/usr/local/bin/wg0-sshd-startup.sh --loop 300"`.
+Caveats: the container shares the phone's netns — bind sshd to the wg0 address only, never wildcard; Android ignores the
+main routing table, so the watchdog keeps an `ip rule … lookup 51820` per AllowedIPs subnet; `UsePAM no` is required
+(PAM account/session stacks cannot work in the container). `net-watchdog.json` in `/var/run/aohp-cron/` shows
+`handshakeAgeSec` / `sshdPid`.
 
 ## Phone capabilities for the OpenClaw app
 All node permissions start **false**; choose them in the app's *Settings → Phone Capabilities*. Never `adb install -g`
@@ -35,11 +48,11 @@ or `pm grant` the app's runtime permissions — pre-granting skips its onboardin
 in the foreground. Each widening creates a new `openclaw nodes approve` request.
 
 ## Container templates
-- The 2026-10-04 ROMs carry the hand-built Debian template (617 MB compressed; the reproducible
-  [templates-20261005](https://github.com/injinj/aohp-agents/releases/tag/templates-20261005) Debian is 382 MB / 1.36 GB
-  uncompressed and will be in the next build). Fedora 44 (402 MB / 1.36 GB) is a sound alternative; **Arch is not
-  recommended on-device** (518 MB / 1.86 GB — over the RAM-inflation budget; pacman needs `DisableSandbox`; gdb's Guile
-  mtime problem; third-party arm64 base image).
+- The 2026-10-05 ROMs carry the reproducible
+  [templates-20261005b](https://github.com/injinj/aohp-agents/releases/tag/templates-20261005b) Debian (407 MB / 1.38 GB
+  uncompressed; the 2026-10-04 ROMs had the hand-built 617 MB predecessor). Fedora 44 (429 MB) is a sound alternative;
+  **Arch is not recommended on-device** (>500 MB / 1.86 GB — over the RAM-inflation budget; pacman needs `DisableSandbox`;
+  gdb's Guile mtime problem; third-party arm64 base image). A new template does not touch existing envs in /data.
 - Only one env can run a gateway (shared netns → only one `:18789`); a second shows PORT BUSY / EADDRINUSE.
 - containerd quirks: `execSync` runs only the first line of a script (send scripts as one base64 line); exited
   `openShell` children are not reaped (zombie `[sh]`); file mtimes are not restored on template extraction; tar type-K
@@ -47,7 +60,11 @@ in the foreground. Each widening creates a new `openclaw nodes approve` request.
   older builds (these ROMs have the stop-pgid fix).
 - /data: an env is ~1.4 GB (debian) once inflated; the OnePlus has plenty, the Pixel 6 128 GB is fine too.
 
-## Driver app nits (0.2.0)
+## Driver app nits (0.3.0)
+- 0.3.0: Autostart replays **every service recorded for the env** (anything started via Harness, the wizard or
+  `aohp sandbox svc-start` and not stopped since), gateway last; an env with nothing recorded gets just the gateway as
+  before. Services started on a 0.2.0 Driver before the update are **not** in the registry — start them once more (or
+  svc-stop/svc-start) after flashing so they are recorded.
 - Harness "Secrets (names only)" card calls `aohp-secrets list`, which is not a subcommand — should be `aohp secret list`.
 - The Autostart switch is UI state; an env created from the CLI starts with it **off**.
 - A sideloaded Driver in `/data/app` shadows the system copy after a ROM update; `pm uninstall org.aohp.driver` drops back
