@@ -91,3 +91,14 @@ in the foreground. Each widening creates a new `openclaw nodes approve` request.
 - The daemon-side unit manager was exercised on Cuttlefish (own test daemon, same source) and the Driver/CLI/shim path through
   a mock bridge; the Binder `unitControl` path and the Units card were compile-verified only before release (no phone was
   flashed for this build). Report anything odd in the Harness Units card with `adb logcat -s aohp-containerd AohpContainer`.
+
+## Queued for next build (oriole build-6 / dodge build-4) — 2026-10-05
+
+- **Drop `WITH_ADB_INSECURE=true`** (`ro.adb.secure=1`) and add `PRODUCT_ADB_KEYS := vendor/aohp/adb_keys` holding the build host's `~/.android/adbkey.pub` (plus any other trusted host). The build host keeps zero-touch scripted access from first boot; any other USB host gets the authorization dialog. Keep `persist.sys.usb.config=adb`. The sideload path is unchanged (`adb reboot sideload` is issued from the authorized booted system).
+- **Lock-screen PIN / direct boot.** With a PIN set, user 0 stays `RUNNING_LOCKED` after reboot, `BOOT_COMPLETED` is withheld and the Driver is not direct-boot aware, so the bridge, env-start and the gateway wait for the first unlock (once per boot; locking the screen afterwards is fine). Either make the Driver `directBootAware` (bridge + env-start on `LOCKED_BOOT_COMPLETED`; gateway start on `ACTION_USER_UNLOCKED` while the Keystore key is CE-bound) or document "no PIN on headless AOHP phones" in provisioning.md.
+- `aohp-update` must run `install/units.sh` (docs already say it does); ship the `aohp` CLI (feat/units) as an aohp-agents release asset — it is too large for the binder base64 file push.
+- Template `sshd.service`: use `-D -e` instead of `-E <file>` so `journalctl -u sshd` shows output.
+- Driver: Autostart switch default **on** (currently a UI-only preference, default off).
+- Sepolicy: `ss` is denied in the shell domain on build-3/5 — scripts should read `/proc/net/tcp`, or allow it. Optional allow for the remaining AOHP denial (`openclaw-gatewa` reading sysfs `model`).
+- Pixel 6 gateway cold start is 52–71 s vs 10 s on the OnePlus 13 with the same unit/template — investigate.
+- Unit `Main PID` is the `sh -c` wrapper; consider `exec` in the wrapper or direct spawn when `ExecStart` has no shell syntax.
