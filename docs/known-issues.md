@@ -9,9 +9,10 @@ recovery-ramdisk copy (`aohp_adb_keys_recovery`) landed at `/system/adb_keys` in
 `unauthorized`** on these builds (sideload is unaffected; the post-sideload reboot needs a tap — see the 2026-10-06 section), and the phone's own `/data/misc/adb/adb_keys` stays empty unless
 someone taps "Always allow". Adding a host = append its `adbkey.pub` line to `vendor/aohp/adb_keys` and rebuild. The
 network adb on dodge (`persist.adb.tcp.port=5555`) is now authenticated too.
-`ro.debuggable=0` means **`adb root` no longer works at all** (verified: `adb shell` stays uid 2000; Lineage's *Rooted
-debugging* toggle needs a debuggable build). Not needed for AOHP work (Driver bridge / ssh into the env); if root adb from the
-build host is wanted, set `ro.debuggable=1` in a later build (queued, optional).
+`ro.debuggable=0` does **not** remove `adb root`: adbd on a userdebug build is compiled with `ANDROID_DEBUGGABLE`
+(`packages/modules/adb/daemon/main.cpp` `should_drop_privileges()`), so `adb root` works and Lineage's *Rooted debugging*
+toggle (`service.adb.root=1`) keeps adbd root across boots - verified on the Pixel on build-6 (`id -u` = 0). An earlier note here
+claimed the opposite; that was a misread of a test (`0` from `id -u` *is* root).
 
 Builds ≤ oriole build-5 / dodge build-3 were built with `WITH_ADB_INSECURE=true` (`ro.adb.secure=0`, `ro.debuggable=1`):
 anyone with the cable owned the phone, in Android and in recovery.
@@ -126,8 +127,8 @@ reboot; no fastboot pre-steps (oriole sideload 4:40, boot 160 s; dodge 3:26, boo
 refused — Chris taps *Reboot system now*. On these builds recovery adb is unauthorized by design (the key is at
 `/system/adb_keys` in the recovery ramdisk, not `/adb_keys`; queued below). Until that is fixed: sideload, then one manual reboot.
 
-**Verified on both phones:** `ro.adb.secure=1`, chex's baked key accepted with no prompt; `ro.debuggable=0` → **`adb root` no longer
-works at all** (`adb shell` is uid 2000; AOHP paths unaffected; option: `ro.debuggable=1` next build if root adb is wanted);
+**Verified on both phones:** `ro.adb.secure=1`, chex's baked key accepted with no prompt; `ro.debuggable=0` but `adb root` still works
+(userdebug adbd is compile-time debuggable; the *Rooted debugging* toggle keeps it root - an earlier claim that it was gone was a misread);
 Driver 0.5.0 autostart with zero touches (bridge :6666, env-start → sshd, net-watchdog.timer, gateway `/health` live); F-Droid +
 Privileged Extension present; CapEff bit 29 (AUDIT_WRITE) on `aohp-containerd`; Launcher3 patch live (no
 `OverviewComponentObserver` crashes); the `Environment=LD_PRELOAD=libnoaudit.so` line **removed** from both envs'
@@ -193,7 +194,6 @@ Commits (all on `lineage-23.2-aohp` of the injinj forks unless noted):
 - **Recovery adb key path**: make `aohp_adb_keys_recovery` land at `/adb_keys` in the recovery ramdisk (replace the
   `create_root_structure.mk` symlink in the recovery variant), so recovery adb is key-authorized and the post-sideload
   `adb reboot` works without a tap.
-- **Optional `ro.debuggable=1`** (keep `ro.adb.secure=1`) if root adb from chex is wanted again; not needed for AOHP.
 - **TUN** still open (below).
 - **Driver directBootAware** (see above): bridge + env-start on `LOCKED_BOOT_COMPLETED` with device-protected prefs,
   gateway start on `ACTION_USER_UNLOCKED`.
