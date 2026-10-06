@@ -113,8 +113,9 @@ in the foreground. Each widening creates a new `openclaw nodes approve` request.
 Built overnight 2026-10-05/06, **flashed and verified on both phones 2026-10-06 02:07–02:50 PDT**. Report: `/home/chris/lineage/logs/REPORT-build-6-4.md`.
 Both built rc=0 (dodge-4 6 min, build-6 17.5 min, incremental): `lineage-23.2-20261006-UNOFFICIAL-dodge.zip` sha `cd3bce64…`,
 `lineage-23.2-20261006-UNOFFICIAL-oriole.zip` sha `cbe60043…` (full lists `logs/artifacts-dodge-4.sha256`, `logs/artifacts-build-6.sha256`).
-Releases: [oriole-23.2-20261006-build6](https://github.com/injinj/aohp-lineage/releases/tag/oriole-23.2-20261006-build6),
-[dodge-23.2-20261006-build4](https://github.com/injinj/aohp-lineage/releases/tag/dodge-23.2-20261006-build4).
+Release: [oriole-23.2-20261006-build6](https://github.com/injinj/aohp-lineage/releases/tag/oriole-23.2-20261006-build6).
+**dodge: build-4 flashed/verified, but not released — build-5 (freeform feature XML, vendor/aohp `36d33ea`) is being built now**
+and will be the dodge release for this round (`dodge-23.2-<date>-build5`); build-4 only differs from it by that one XML.
 
 **Update flow is now sideload-only.** The A/B payload carries boot/dtbo/vendor_boot/vbmeta (dodge also init_boot/recovery —
 `META/ab_partitions.txt`), so a build-to-build update is `adb reboot sideload` from the booted system → `adb sideload <zip>` →
@@ -166,8 +167,8 @@ Commits (all on `lineage-23.2-aohp` of the injinj forks unless noted):
   `createDesk displayId=2 → deskId=39`, apps open as windows on the monitor. Gotcha: a `settings put` immediately followed by
   `adb reboot` was **lost** (SettingsProvider flushes asynchronously) — wait ~5 s before rebooting. The external display comes
   up as its own display group (extended, not mirrored) with the `SecondaryDisplayLauncher` as home + the per-display taskbar.
-  Image fix committed, **not yet built**: vendor/aohp `36d33ea` (`PRODUCT_COPY_FILES` freeform feature XML in the dodge block)
-  → dodge build-5.
+  Image fix: vendor/aohp `36d33ea` (`PRODUCT_COPY_FILES` freeform feature XML in the dodge block) → **dodge build-5, being
+  built now** (2026-10-06 morning); flash it with the sideload-only flow and confirm the dock gives a desk with no `settings put`.
 - **F-Droid bundled** — vendor/aohp `2de181a`: `org.fdroid.fdroid` 1.23.2 as `system/app` (presigned, `preprocessed`)
   + `org.fdroid.fdroid.privileged` 0.2.13 as priv-app with its allow-list; `fetch-prebuilts.sh fdroid` (default set)
   pins versionCode + sha256. **Termux is not bundled**: the F-Droid APK is v2-only-signed with compressed JNI libs, so
@@ -185,9 +186,10 @@ Commits (all on `lineage-23.2-aohp` of the injinj forks unless noted):
 
 ## Queued for a later build — 2026-10-06 (re-queued after the flash)
 
-- **dodge build-5: freeform feature XML** — vendor/aohp `36d33ea` is committed, build + flash it, then confirm the dock gives a
-  desk with no `settings put` (drop the runtime `enable_freeform_support` workaround). Decide afterwards whether the
-  `persist.wm.debug.desktop_experience_devopts` property should stay baked in or only the overlay.
+- **dodge build-5: freeform feature XML** — vendor/aohp `36d33ea`, **in progress** (building 2026-10-06); after the flash confirm
+  the dock gives a desk with no `settings put` (drop the runtime `enable_freeform_support` workaround) and release it as
+  `dodge-23.2-<date>-build5`. Decide afterwards whether the `persist.wm.debug.desktop_experience_devopts` property should stay
+  baked in or only the overlay.
 - **Recovery adb key path**: make `aohp_adb_keys_recovery` land at `/adb_keys` in the recovery ramdisk (replace the
   `create_root_structure.mk` symlink in the recovery variant), so recovery adb is key-authorized and the post-sideload
   `adb reboot` works without a tap.
