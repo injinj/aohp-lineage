@@ -1,11 +1,18 @@
-# Known issues and caveats (2026-10-05 builds: oriole build-4, dodge build-2)
+# Known issues and caveats (2026-10-06 builds: oriole build-6, dodge build-4; 2026-10-05: oriole build-5, dodge build-3)
 
 ## Dev-build security posture
-`WITH_ADB_INSECURE=true`: adb is on at first boot with **no authorization prompt**, in Android and in recovery
-(`ro.adb.secure=0`, `ro.debuggable=1`, `persist.sys.usb.config=adb`). Anyone with the cable owns the phone. Intended for
-test devices; rebuild without the knob (and drop the `persist.sys.usb.config=adb` line in `vendor/aohp/aohp.mk`) for
-anything else. `ro.secure=1` is unchanged, so `adb root` still needs **Developer options → Rooted debugging**
-(Lineage's `adbroot_service`; "ADB Root access is disabled by system setting" until then). Not needed for AOHP work.
+**Since oriole build-6 / dodge build-4 (2026-10-06):** normal Lineage userdebug — `ro.adb.secure=1`, `ro.debuggable=0`,
+`persist.sys.usb.config=adb`. The build host's adb public key (`vendor/aohp/adb_keys` = chex `~/.android/adbkey.pub`,
+`PRODUCT_ADB_KEYS`) is installed as `/product/etc/security/adb_keys` (`/adb_keys` symlinks to it) **and** as `/adb_keys` in
+the recovery ramdisk (`aohp_adb_keys_recovery`), so chex gets adb from first boot and in recovery with no RSA dialog; any
+other USB host sees the usual authorization prompt, and the phone's own `/data/misc/adb/adb_keys` stays empty unless
+someone taps "Always allow". Adding a host = append its `adbkey.pub` line to `vendor/aohp/adb_keys` and rebuild. The
+network adb on dodge (`persist.adb.tcp.port=5555`) is now authenticated too.
+`ro.secure=1` is unchanged, so `adb root` still needs **Developer options → Rooted debugging** (Lineage's
+`adbroot_service`; "ADB Root access is disabled by system setting" until then). Not needed for AOHP work.
+
+Builds ≤ oriole build-5 / dodge build-3 were built with `WITH_ADB_INSECURE=true` (`ro.adb.secure=0`, `ro.debuggable=1`):
+anyone with the cable owned the phone, in Android and in recovery.
 
 ## SELinux: what the 2026-10-05 builds fixed, and what is still denied
 sepolicy commit `38feaf914` (`private/aohp_container_daemon.te`) grants the container domain:
@@ -17,6 +24,13 @@ sepolicy commit `38feaf914` (`private/aohp_container_daemon.te`) grants the cont
   libuv io_uring probe → `io_uring_use()`); `FICLONE` 0x9409 (+ FICLONERANGE, FIDEDUPERANGE, TCGETS2, FS_IOC_GETFLAGS/
   SETFLAGS/FIEMAP) on container files;
 - `sysfs_dm` dir search + file read — `dnf` (Fedora template) reads `/sys/block/dm-*/queue/rotational`.
+
+sepolicy `a20ebb2f2` + `2e2f4c0e6` (build-6 / dodge-4) add `self:capability audit_write` (+ `AUDIT_WRITE` in the containerd
+rc, core `503e963d2`) — the netlink socket alone was not enough, the *send* needs `CAP_AUDIT_WRITE`. Two more grants were
+tried and **reverted because they violate neverallows**: a generic `sysfs:file` read for the `openclaw-gatewa` `model`
+probe (`private/coredomain.te:142`, coredomain may not touch unlabeled sysfs; the node would need its own label) and
+`shell self:netlink_tcpdiag_socket` for `ss` (`private/app.te:567`, no appdomain gets sock_diag). Both stay denied and
+harmless; scripts keep reading `/proc/net/tcp`.
 
 **Still denied (by design):** `self:capability sys_ptrace` — `pgrep -f <host pid>` / reading another uid's
 `/proc/<pid>/cmdline` inside the container. Lineage's `private/domain.te` neverallows `sys_ptrace` for every domain
@@ -92,19 +106,66 @@ in the foreground. Each widening creates a new `openclaw nodes approve` request.
   a mock bridge; the Binder `unitControl` path and the Units card were compile-verified only before release (no phone was
   flashed for this build). Report anything odd in the Harness Units card with `adb logcat -s aohp-containerd AohpContainer`.
 
-## Queued for next build (oriole build-6 / dodge build-4) — 2026-10-05
+## 2026-10-06 builds (oriole build-6 / dodge build-4) — what changed
 
-- **Drop `WITH_ADB_INSECURE=true`** (`ro.adb.secure=1`) and add `PRODUCT_ADB_KEYS := vendor/aohp/adb_keys` holding the build host's `~/.android/adbkey.pub` (plus any other trusted host). The build host keeps zero-touch scripted access from first boot; any other USB host gets the authorization dialog. Keep `persist.sys.usb.config=adb`. The sideload path is unchanged (`adb reboot sideload` is issued from the authorized booted system).
-- **Lock-screen PIN / direct boot.** With a PIN set, user 0 stays `RUNNING_LOCKED` after reboot, `BOOT_COMPLETED` is withheld and the Driver is not direct-boot aware, so the bridge, env-start and the gateway wait for the first unlock (once per boot; locking the screen afterwards is fine). Either make the Driver `directBootAware` (bridge + env-start on `LOCKED_BOOT_COMPLETED`; gateway start on `ACTION_USER_UNLOCKED` while the Keystore key is CE-bound) or document "no PIN on headless AOHP phones" in provisioning.md.
-- `aohp-update` must run `install/units.sh` (docs already say it does); ship the `aohp` CLI (feat/units) as an aohp-agents release asset — it is too large for the binder base64 file push.
-- Template `sshd.service`: use `-D -e` instead of `-E <file>` so `journalctl -u sshd` shows output.
-- Driver: Autostart switch default **on** (currently a UI-only preference, default off).
-- Sepolicy: `ss` is denied in the shell domain on build-3/5 — scripts should read `/proc/net/tcp`, or allow it. Optional allow for the remaining AOHP denial (`openclaw-gatewa` reading sysfs `model`).
+Built overnight 2026-10-05/06, **not flashed yet** (Chris flashes in the morning). Report: `/home/chris/lineage/logs/REPORT-build-6-4.md`.
+Both built rc=0 (dodge-4 6 min, build-6 17.5 min, incremental): `lineage-23.2-20261006-UNOFFICIAL-dodge.zip` sha `cd3bce64…`,
+`lineage-23.2-20261006-UNOFFICIAL-oriole.zip` sha `cbe60043…` (full lists `logs/artifacts-dodge-4.sha256`, `logs/artifacts-build-6.sha256`).
+Commits (all on `lineage-23.2-aohp` of the injinj forks unless noted):
+
+- **adb: `WITH_ADB_INSECURE` dropped, host key baked in** — vendor/aohp `204883a` (`PRODUCT_ADB_KEYS := vendor/aohp/adb_keys`,
+  recovery-ramdisk copy via `vendor/aohp/Android.bp`). See "Dev-build security posture" above. **Morning flash:** after
+  the sideload the phone comes up with `ro.adb.secure=1`; chex is authorized by key, so nothing changes in the scripted
+  flow — if a dialog does appear on the phone, tap *Always allow* once (then `/data/misc/adb/adb_keys` also carries it).
+  Caveat: the recovery-ramdisk copy landed at `/system/adb_keys` instead of `/adb_keys` (that path is the dangling
+  `/product/…` symlink from `create_root_structure.mk`), so **plain recovery adb shows *unauthorized***; the update
+  path is unaffected because `adb reboot sideload` is sent from booted Android and sideload mode runs minadbd, which
+  never authenticates (`minadbd.cpp:87`). Fallback: recovery *Advanced → Enable ADB*. Queued: install it as `/adb_keys`.
+- **Sepolicy / caps** — sepolicy `a20ebb2f2` + `2e2f4c0e6`, core `503e963d2`: `CAP_AUDIT_WRITE` + `audit_write` (sshd pty
+  logins no longer need the `libnoaudit.so` LD_PRELOAD line — remove it from `/etc/aohp/system/sshd.service` in the envs
+  after flashing and verify an interactive `ssh` still opens; `UsePAM no` can stay). The `sysfs:file` read and the
+  shell-domain `ss` grant **could not be added** (neverallows, see the SELinux section) — both stay denied, harmless.
+  **TUN:** the `tun_device`/`tun_socket` rules were already in place since `cb9e9b8fa`; the `TUNSETIFF` EPERM of
+  2026-10-05 produced no `avc:` line and the env's `CapEff` (0x2c30fb) includes NET_ADMIN, so it is not a policy denial
+  — nothing was added; needs a live C/python probe (open `/dev/net/tun`, `TUNSETIFF`) with `dmesg` beside it.
+- **Launcher3 taskbar NPE** — new repo project: `packages/apps/Launcher3` from `injinj/android_packages_apps_Launcher3`
+  branch `lineage-23.2-aohp` (`626851073d`, one commit on LineageOS `lineage-23.2`): `OverviewComponentObserver` falls
+  back to `QuickstepLauncher` when its own HOME intent resolves to null (AOSP main has no fix). Recorded in the injinj
+  local manifest (`6513e9e`). Re-test: *Force desktop mode* + external display → taskbar without the crash loop.
+- **dodge: desktop experience on external displays** — vendor/aohp `4cab818`: static framework-res overlay
+  `config_isDesktopModeDevOptionSupported=true` (the gate; a product property alone is ignored on a phone) +
+  `persist.wm.debug.desktop_experience_devopts=true`, both inside `ifeq ($(TARGET_PRODUCT),lineage_dodge)`. The phone
+  screen stays a phone (`config_canInternalDisplayHostDesktops` untouched). Untested on hardware: check Settings →
+  Developer options shows *Enable desktop experience features* ON and that a dock gives the extended desktop; if the
+  monitor only mirrors, look at Settings → Connected displays (content mode) before touching the legacy *Force desktop
+  mode* toggle (that is the path that crashed the launcher; now null-checked).
+- **F-Droid bundled** — vendor/aohp `2de181a`: `org.fdroid.fdroid` 1.23.2 as `system/app` (presigned, `preprocessed`)
+  + `org.fdroid.fdroid.privileged` 0.2.13 as priv-app with its allow-list; `fetch-prebuilts.sh fdroid` (default set)
+  pins versionCode + sha256. **Termux is not bundled**: the F-Droid APK is v2-only-signed with compressed JNI libs, so
+  Soong can neither store the libs (breaks the signature) nor ship it verbatim (system apps get no lib extraction →
+  `UnsatisfiedLinkError`). Install Termux from the bundled F-Droid (same signer as the one it ships) and uninstall the
+  GitHub-signed copy from 2026-10-05 first.
+- **AOHP Driver 0.5.0** (`injinj/aohp-driver` `d8cfb1f`, tag `v0.5.0`, CI APK sha `89ab5224…` — byte-identical to the
+  local build; vendor/aohp `00ae840` pins it): **Autostart is on by default**; the Runtime-card switch is now an opt-out
+  (`autostart_off_envs`). Envs that were already on are unaffected; an env that was explicitly off becomes on.
+  **directBootAware not done** — `BOOT_COMPLETED` is still withheld while a lock-screen PIN keeps user 0
+  `RUNNING_LOCKED`; doing it properly needs DE-storage prefs and a gateway deferral to `ACTION_USER_UNLOCKED` (the
+  Keystore secret is CE-bound), so "no PIN on headless AOHP phones" stays the rule.
+
+## Queued for a later build — 2026-10-06
+
+- **Driver directBootAware** (see above): bridge + env-start on `LOCKED_BOOT_COMPLETED` with device-protected prefs,
+  gateway start on `ACTION_USER_UNLOCKED`.
+- **Recovery adb key path**: make `aohp_adb_keys_recovery` land at `/adb_keys` in the recovery ramdisk (replace the
+  `create_root_structure.mk` symlink in the recovery variant), so recovery adb is key-authorized too.
+- **TUN probe** (see above): if the C probe also gets EPERM with NET_ADMIN effective and no `avc:`, look at the kernel
+  (`tun_set_iff` → `ns_capable(net->user_ns, CAP_NET_ADMIN)`) and the user-ns of the container process rather than at
+  sepolicy; until then `tailscaled --tun=userspace-networking`.
+- **Termux** stays an F-Droid install (above). Re-check if a future F-Droid build ships a v1 signature or stored libs.
+- `aohp-update` must run `install/units.sh` (docs already say it does); ship the `aohp` CLI (feat/units) as an aohp-agents
+  release asset — it is too large for the binder base64 file push. (aohp-agents template work, not ROM.)
+- Template `sshd.service`: use `-D -e` instead of `-E <file>` so `journalctl -u sshd` shows output; drop the
+  `LD_PRELOAD=libnoaudit.so` line once build-6/dodge-4 are on the phones.
 - Pixel 6 gateway cold start is 52–71 s vs 10 s on the OnePlus 13 with the same unit/template — investigate.
 - Unit `Main PID` is the `sh -c` wrapper; consider `exec` in the wrapper or direct spawn when `ExecStart` has no shell syntax.
-- **Sepolicy: TUN for the container** — `tailscaled` (and any userspace VPN) fails `TUNSETIFF` with EPERM; today it runs `--tun=userspace-networking` (netstack, inbound-only, no interface). Add `allow aohp_container_daemon tun_device:chr_file { read write open ioctl };` (+ `self:tun_socket { create read write }` if the tree requires it) and make `/dev/tun` reachable (ueventd `0666` or containerd chown). Then tailscaled gets a real `tailscale0` with a 100.x address and outbound works for all processes.
-- **Sepolicy/caps: audit netlink** — pty logins through sshd need `audit_session_open`; grant `CAP_AUDIT_WRITE` to the container and `allow aohp_container_daemon self:netlink_audit_socket { create read write nlmsg_relay }` + `capability audit_write`, then drop the `libnoaudit.so` LD_PRELOAD and `UsePAM no` workarounds.
-- **Bundle Termux + F-Droid in the image** — `vendor/aohp/prebuilt-apps/` with `android_app_import { presigned: true }` for `org.fdroid.fdroid` (as priv-app, plus `org.fdroid.fdroid.privileged` so installs need no prompts) and `com.termux` using the **F-Droid-signed** APK (not the GitHub build — different signer, F-Droid can't update it). Add to `PRODUCT_PACKAGES` in `aohp.mk`. Phones currently have the GitHub Termux (installed 2026-10-05) — reinstall with the F-Droid build when the image ships.
-- **Desktop mode** — on dodge (DP Alt Mode present: `card0-DP-1`) default-enable Android 16 desktop experience for external displays (`persist.wm.debug.desktop_mode` / the Developer-options flag) so a USB-C dock gives windows + taskbar out of the box. oriole has no DP Alt Mode (firmware), skip.
-- **Desktop mode on an external display crash-loops Trebuchet (Launcher3) on dodge** — with `force_desktop_mode_on_external_displays=1` the external display gets a taskbar; `TaskbarManagerImpl.recreateTaskbarForDisplay` → `OverviewComponentObserver.<init>` does `pm.resolveActivity(homeIntent.setPackage(launcher3), 0)` which returns **null** → NPE (`OverviewComponentObserver.java:120`), launcher restarts forever, monitor ignores clicks. Build flags (`enable_desktop_windowing_mode`, `enable_desktop_taskbar_on_freeform_displays`, `ENABLE_TASKBAR_CONNECTED_DISPLAYS`) are all **read-only enabled** in this build, so no runtime override. Fix for next build: patch `packages/apps/Launcher3` to null-check the resolve (fall back to `new ComponentName(context, QuickstepLauncher.class)` / resolve with `MATCH_DISABLED_COMPONENTS`) — check AOSP main Launcher3 for the upstream fix first — then re-test the Developer-options desktop toggle. Workaround today: leave "Force desktop mode" off (mirroring), or install a secondary-home launcher. Crash log: `adb logcat -b crash` 2026-10-05 21:40.
-- **Network adb** is enabled on dodge (`persist.adb.tcp.port=5555`; `adb connect 10.3.2.213:5555`) so the dock no longer cuts chex off. Unauthenticated until `PRODUCT_ADB_KEYS` lands — LAN/tunnel only.
+- Desktop mode on dodge: once verified, decide whether the dev-option property should stay baked in or only the overlay.
