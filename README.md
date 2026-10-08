@@ -9,6 +9,17 @@ gateway live, app paired, test message answered).
 
 This repository is the **documentation + ROM release host**. Code lives in the repos listed below.
 
+## What runs inside what
+
+![LineageOS + AOHP: phone → ROM → aohp-containerd → Debian env → OpenClaw gateway; the OpenClaw app and the AOHP Driver app talk to it over loopback](docs/architecture.svg)
+
+Read it bottom-up: a stock Lineage kernel; the Lineage/Android 16 system with AOHP's framework services patched in;
+`aohp-containerd`, a root daemon that chroots a Debian rootfs under `/data/aohp/envs/<name>` and supervises its units; and
+inside that env the OpenClaw gateway on `127.0.0.1:18789`. Two ordinary Android apps sit on top: the **AOHP Driver** (the
+console that creates envs, holds the API key in the Keystore and hosts the `ws://127.0.0.1:6666` bridge the `aohp` CLI
+talks to) and the **OpenClaw Android** app (the chat client, paired to the on-phone gateway). Everything is loopback;
+a dev host is only needed for flashing and optional headless provisioning over `adb forward`.
+
 | | |
 |---|---|
 | **ROM releases** | [Releases page](https://github.com/injinj/aohp-lineage/releases) - tags are `oriole-<lineage>-<date>-build<N>` (Pixel 6) and `dodge-<lineage>-<date>-build<N>` (OnePlus 13); the newest tag per device is the current build, and each release note says what changed and which build it supersedes. |
