@@ -98,6 +98,18 @@ in the foreground. Each widening creates a new `openclaw nodes approve` request.
   patched on the phone; the same changes are now committed upstream in the config repo / aohp-agents) — `git status`
   inside `/root/.openclaw` will show them; `git checkout -- .` + `aohp-update` is safe.
 
+## GPU / display in the env (dodge build-15, 2026-10-09)
+
+- OnePlus 13 only. GL via Mesa turnip/freedreno on `/dev/kgsl-3d0` works enforcing (`glxgears` 60 FPS vsynced); the env needs
+  a Mesa ≥ 26 built with `-Dfreedreno-kmds=msm,kgsl` (lfdevs tarball over Debian's 25.0.7) and Termux:X11 installed separately
+  (GPL-3). Recipe and sepolicy inventory: [gpu.md](gpu.md).
+- **Vulkan on-screen does not work** (`vkcube` asserts in `demo_prepare_buffers`; needs the non-legacy AHB presentation path +
+  gralloc rules). Off-screen Vulkan is fine.
+- `zink` is unusable (no `/dev/shm` in the env). Residual harmless denials: `vendor_sysfs_kgsl` symlink read (vendor policy is
+  the OEM's on dodge), `vendor_overlay_file` stat (coredomain neverallow), `love`'s TCGETS ioctl on `/proc/*/mountinfo`.
+- Pixel 6: no GPU in the env yet (Mali has no open userspace; a host-side virgl proxy is scoped, not built).
+- Template units (`name@.service`) are not supported, so one unit per game/app.
+
 ## Units (build-5 / dodge-3)
 
 - Not implemented: socket activation, `User=`, `Type=notify`/`forking` (load error), per-unit cgroup keys, `OnCalendar`

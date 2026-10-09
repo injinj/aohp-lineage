@@ -27,7 +27,7 @@ Exec lines run as `/bin/sh -c` (root) in a fresh mount namespace with the usual 
 stdout/stderr → unit log, env = containerd defaults + `Environment=` + `EnvironmentFile=` + `AOHP_ENV`/`AOHP_UNIT`
 (`$MAINPID` for ExecStop/ExecReload). Unknown keys only warn.
 
-## HostExec= — units that run on the Android side (dodge build-8, 2026-10-09)
+## HostExec= — units that run on the Android side (dodge build-8, 2026-10-09; proven end-to-end in build-15)
 
 `HostExec=yes` in `[Service]` makes containerd spawn the unit **on the Android host** instead of in the chroot:
 no mount namespace, no bind mounts, no `chroot`; the shell is `/system/bin/sh`, `PATH` is the Android one,
@@ -40,7 +40,10 @@ WSL "interop" idea: the env declares a dependency on something only the host can
 First user: the display. `x11.service` runs the **Termux:X11** server (`app_process … com.termux.x11.CmdEntryPoint :0`,
 a real X server that draws into that app's window; the APK is a separate GPL-3 install, `com.termux.x11`) with
 `TMPDIR=$AOHP_ROOTFS/tmp`, so X clients in the env find it at `/tmp/.X11-unix/X0`. GPU access comes from Mesa in
-the env opening `/dev/kgsl-3d0` directly (OnePlus 13; see the GPU section of the README). App units then just say
+the env opening `/dev/kgsl-3d0` directly (OnePlus 13; sepolicy inventory, env preparation and debugging in
+[gpu.md](gpu.md)). The X server runs in the daemon's SELinux domain, so the ROM also carries the rules an
+`app_process` needs there and the Binder/fd rules for the Termux:X11 Activity to hand it a Surface — with those
+(dodge build-15) the app window shows the X screen after a cold boot with no manual step. App units then just say
 
 ```ini
 [Unit]
@@ -53,7 +56,8 @@ ExecStart=/usr/bin/love /srv/games/bounce
 
 and `systemctl start love-bounce` brings the display up as a side effect; `systemctl stop x11` takes every X client
 down with it. Shipped examples: `x11.service`, `glxgears.service`, `xterm.service`, `love-bounce.service`
-(a LÖVE game under `/srv/games/bounce`). No window manager by default — each app fills the phone screen; add
+(a LÖVE game under `/srv/games/bounce`; verified on build-15: `glxgears` 60 FPS vsynced, the game visible in the
+Termux:X11 window). No window manager by default — each app fills the phone screen; add
 `openbox.service` (`Requires=x11.service`) when docked. Template units (`name@.service`, `%i`) are not supported.
 
 ## What the template ships (`templates-20261005c`)
