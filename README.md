@@ -20,6 +20,15 @@ console that creates envs, holds the API key in the Keystore and hosts the `ws:/
 talks to) and the **OpenClaw Android** app (the chat client, paired to the on-phone gateway). Everything is loopback;
 a dev host is only needed for flashing and optional headless provisioning over `adb forward`.
 
+### Why a ROM at all?
+
+The same gateway could run on a stock phone with root, or inside a PRoot "Linux in an app" (the only route that can
+ship in the Play Store), or be rewritten for the platform. Each gives something up: root breaks attestation and
+sepolicy; PRoot puts an app-uid process under ptrace, Doze and the low-memory killer; a rewrite stops being OpenClaw
+the day upstream moves. A ROM is the one option where the gateway is a real, supervised, SELinux-confined system
+service and upstream merges land unchanged — at the price of a flash. The trade-offs, and how this differs from the
+app-operating agents Google, Honor and Xiaomi ship, are in [docs/linux-tool-use.md](docs/linux-tool-use.md).
+
 | | |
 |---|---|
 | **ROM releases** | [Releases page](https://github.com/injinj/aohp-lineage/releases) - tags are `oriole-<lineage>-<date>-build<N>` (Pixel 6) and `dodge-<lineage>-<date>-build<N>` (OnePlus 13); the newest tag per device is the current build, and each release note says what changed and which build it supersedes. |
