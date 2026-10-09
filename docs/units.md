@@ -27,6 +27,35 @@ Exec lines run as `/bin/sh -c` (root) in a fresh mount namespace with the usual 
 stdout/stderr → unit log, env = containerd defaults + `Environment=` + `EnvironmentFile=` + `AOHP_ENV`/`AOHP_UNIT`
 (`$MAINPID` for ExecStop/ExecReload). Unknown keys only warn.
 
+## HostExec= — units that run on the Android side (dodge build-8, 2026-10-09)
+
+`HostExec=yes` in `[Service]` makes containerd spawn the unit **on the Android host** instead of in the chroot:
+no mount namespace, no bind mounts, no `chroot`; the shell is `/system/bin/sh`, `PATH` is the Android one,
+`ExecStart`/`WorkingDirectory`/`EnvironmentFile` are host paths, and the env's rootfs is exported as
+`$AOHP_ROOTFS` (`/data/aohp/envs/<env>/rootfs`). Everything else is unchanged — the process joins the env's
+cgroup, so `stop`, `KillMode`, `Restart`, logs and *Stop env* behave exactly as for in-container units, and it
+runs in the container daemon's SELinux domain (which is what the sepolicy grants are written for). It is the
+WSL "interop" idea: the env declares a dependency on something only the host can run.
+
+First user: the display. `x11.service` runs the **Termux:X11** server (`app_process … com.termux.x11.CmdEntryPoint :0`,
+a real X server that draws into that app's window; the APK is a separate GPL-3 install, `com.termux.x11`) with
+`TMPDIR=$AOHP_ROOTFS/tmp`, so X clients in the env find it at `/tmp/.X11-unix/X0`. GPU access comes from Mesa in
+the env opening `/dev/kgsl-3d0` directly (OnePlus 13; see the GPU section of the README). App units then just say
+
+```ini
+[Unit]
+Requires=x11.service
+After=x11.service
+[Service]
+EnvironmentFile=/etc/aohp/x11.env     # DISPLAY=:0 XDG_RUNTIME_DIR=/tmp MESA_LOADER_DRIVER_OVERRIDE=kgsl
+ExecStart=/usr/bin/love /srv/games/bounce
+```
+
+and `systemctl start love-bounce` brings the display up as a side effect; `systemctl stop x11` takes every X client
+down with it. Shipped examples: `x11.service`, `glxgears.service`, `xterm.service`, `love-bounce.service`
+(a LÖVE game under `/srv/games/bounce`). No window manager by default — each app fills the phone screen; add
+`openbox.service` (`Requires=x11.service`) when docked. Template units (`name@.service`, `%i`) are not supported.
+
 ## What the template ships (`templates-20261005c`)
 
 `openclaw-gateway.service` (**enabled** — `Restart=on-failure`, `RestartSec=5`, `SuccessExitStatus=0 143`,
