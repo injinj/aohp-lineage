@@ -5,6 +5,15 @@ The architecture diagram in the [README](../README.md#what-runs-inside-what) rai
 trades something different. This page lays out the options as they stand in late 2026, and why AOHP-on-Lineage
 is a ROM.
 
+## Why want Linux on a phone at all
+
+Because Linux is a first-class networking and developer platform, and a phone that carries one stops being a
+terminal and becomes a node. With sshd, WireGuard/Tailscale, cron and unit supervision in the pocket, and an
+inexpensive model sitting on top of a full userland, "I need a thing that watches this and tells me" no longer
+means finding an app — it means the agent writes a small program, a unit file and a route, on the device, in a
+minute, and you own it. The platform vendors' agents **consume** apps from an integration catalog; an agent with a
+Linux userland **produces** them. That asymmetry is the whole reason to carry the weight described below.
+
 ## What "Linux tool use" means and why it is the dividing line
 
 An OpenClaw agent is only interesting because of its tools: `exec`, file read/write, git, package managers,
