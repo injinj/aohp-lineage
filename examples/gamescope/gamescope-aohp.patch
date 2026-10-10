@@ -83,16 +83,10 @@ index 2d73927..53e5e2d 100644
  	wlserver.wlr.compositor = wlr_compositor_create(wlserver.display, 5, wlserver.wlr.renderer);
  
  	wl_signal_add( &wlserver.wlr.compositor->events.new_surface, &new_surface_listener );
-diff --git a/subprojects/wlroots b/subprojects/wlroots
---- a/subprojects/wlroots
-+++ b/subprojects/wlroots
-@@ -1 +1 @@
--Subproject commit c08d99437ec8bb56a703f04ad1ef199502c62d10
-+Subproject commit c08d99437ec8bb56a703f04ad1ef199502c62d10-dirty
-diff --git a/types/wlr_linux_dmabuf_v1.c b/types/wlr_linux_dmabuf_v1.c
+diff --git a/subprojects/wlroots/types/wlr_linux_dmabuf_v1.c b/subprojects/wlroots/types/wlr_linux_dmabuf_v1.c
 index bfd9763..27592ef 100644
---- a/types/wlr_linux_dmabuf_v1.c
-+++ b/types/wlr_linux_dmabuf_v1.c
+--- a/subprojects/wlroots/types/wlr_linux_dmabuf_v1.c
++++ b/subprojects/wlroots/types/wlr_linux_dmabuf_v1.c
 @@ -891,13 +891,14 @@ static bool set_default_feedback(struct wlr_linux_dmabuf_v1 *linux_dmabuf,
  	}
  
