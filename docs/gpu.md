@@ -60,8 +60,12 @@ recents only closes the *window*; reopening it reattaches). The files live in th
 | `phosh.service` | `dbus-run-session -- phoc -C /tmp/phoc.ini -E phosh-session-wrap`; `WLR_BACKENDS=x11 WLR_RENDERER=pixman`, `GSK_RENDERER=cairo`. `ExecStartPre=phoc-ini-gen` writes `/tmp/phoc.ini` with `mode = <panel size>` (`/etc/aohp/panel-size`, e.g. `1440x3008`) and `scale = 3` — the output mode must equal the Termux:X11 root or touch is offset, and the root is only right after the app attaches. `phosh-session-wrap` publishes the session bus address to `/tmp/runtime-root/session.env` for sibling units, resets `org.gnome.Settings last-panel` (a crashed panel would otherwise reopen on every launch) and execs `phosh --unlocked`. |
 | `squeekboard.service` | the on-screen keyboard; joins phosh's session bus + `wayland-0`. Windows resize around it and it has Ctrl/Alt/Tab/arrow rows, which the Android IME cannot offer. |
 
-Termux:X11 preferences for Phosh: **Fullscreen** on, **Show additional keyboard** off, **Touchscreen input mode = Direct touch**
-(`touchMode=3`; the default trackpad mode moves a pointer with an offset, right for a desktop, wrong for a touch shell).
+Termux:X11 preferences for Phosh: **Fullscreen** on, **Show additional keyboard** off, **Touchscreen input mode = Simulated
+touch** (`touchMode=2`: taps become pointer events under the finger). Not *Direct touch*: that delivers wlr touch events, and
+wlroots then rejects the xdg-activation token Phosh requests for a launch (its focus check knows only keyboard/pointer focus),
+so every app launched from the grid sits behind the splash until the 5 s `STARTUP_TIMEOUT` — "5 seconds from tap to window",
+while the same app from Console is instant. With simulated touch the token round-trips in 0.2 s. The default trackpad mode moves
+an offset pointer: right for a docked desktop, wrong for a touch shell.
 
 What works unweirded: apps (Console, Text Editor, Calculator, anything GTK/Qt), the shade, overview, notifications,
 Settings → Appearance / Accessibility / Keyboard / Date & Time. What is "weirded out by the container" splits cleanly:

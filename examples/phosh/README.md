@@ -12,5 +12,5 @@ echo 1440x3008 > /etc/aohp/panel-size      # fullscreen Termux:X11 surface, WxH
 systemctl daemon-reload && systemctl enable --now dbus-system phosh squeekboard
 ```
 
-Then in the Termux:X11 app: Fullscreen on, additional keyboard off, touch mode = direct touch.
+Then in the Termux:X11 app: Fullscreen on, additional keyboard off, touch mode = **simulated touch** (direct touch makes every launch wait out Phosh's 5 s splash timeout — see docs/gpu.md).
 Requires `x11.service` from `docs/units.md` without `-legacy-drawing`.
