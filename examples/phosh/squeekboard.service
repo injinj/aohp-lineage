@@ -1,0 +1,18 @@
+[Unit]
+Description=squeekboard — Phosh on-screen keyboard (layer-shell, windows resize around it)
+Requires=phosh.service
+After=phosh.service
+
+[Service]
+# Shares the phosh unit's session bus + Wayland socket: both are written to /tmp/runtime-root by phosh.service's
+# dbus-run-session; the address file is produced by ExecStartPost of phosh.service.
+EnvironmentFile=/tmp/runtime-root/session.env
+Environment=XDG_RUNTIME_DIR=/tmp/runtime-root WAYLAND_DISPLAY=wayland-0 XDG_SESSION_TYPE=wayland GDK_BACKEND=wayland
+Environment=XDG_CURRENT_DESKTOP=Phosh:GNOME HOME=/root NO_AT_BRIDGE=1
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 20); do [ -S /tmp/runtime-root/wayland-0 ] && [ -s /tmp/runtime-root/session.env ] && exit 0; sleep 0.5; done; exit 1'
+ExecStart=/usr/bin/squeekboard
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=aohp.target

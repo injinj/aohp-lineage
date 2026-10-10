@@ -1,0 +1,23 @@
+[Unit]
+Description=Phosh mobile shell (phoc nested on the Termux:X11 display)
+Requires=x11.service
+After=x11.service
+
+[Service]
+# phoc's X11 backend opens one window on :0 (Termux:X11 fills the phone screen with it) and
+# Phosh + apps run as Wayland clients inside. pixman compositor first (NativOS does the same);
+# switch WLR_RENDERER=gles2 once presentation through the X11 path is proven.
+# wlroots allocates its buffers with shm_open: needs the per-container /dev/shm tmpfs (dodge build-18+).
+Environment=DISPLAY=:0 XDG_RUNTIME_DIR=/tmp/runtime-root MESA_LOADER_DRIVER_OVERRIDE=kgsl
+Environment=WLR_BACKENDS=x11 WLR_RENDERER=pixman WLR_X11_OUTPUTS=1
+Environment=XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=Phosh:GNOME XDG_CONFIG_HOME=/root/.config HOME=/root
+Environment=GSK_RENDERER=cairo GDK_BACKEND=wayland NO_AT_BRIDGE=1
+ExecStartPre=/bin/sh -c 'mkdir -p /tmp/runtime-root /tmp/.shm && chmod 700 /tmp/runtime-root'
+ExecStartPre=/usr/local/bin/phoc-ini-gen
+ExecStart=/usr/bin/dbus-run-session -- /usr/bin/phoc -C /tmp/phoc.ini -E /usr/local/bin/phosh-session-wrap
+Restart=on-failure
+RestartSec=3
+KillMode=control-group
+
+[Install]
+WantedBy=aohp.target

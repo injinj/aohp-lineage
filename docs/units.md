@@ -57,8 +57,9 @@ ExecStart=/usr/bin/love /srv/games/bounce
 and `systemctl start love-bounce` brings the display up as a side effect; `systemctl stop x11` takes every X client
 down with it. Shipped examples: `x11.service`, `glxgears.service`, `xterm.service`, `love-bounce.service`
 (a LÖVE game under `/srv/games/bounce`; verified on build-15: `glxgears` 60 FPS vsynced, the game visible in the
-Termux:X11 window). No window manager by default — each app fills the phone screen; add
-`openbox.service` (`Requires=x11.service`) when docked. Template units (`name@.service`, `%i`) are not supported.
+Termux:X11 window). No window manager by default — each app fills the phone screen; for a touch shell run
+**Phosh** as a unit (`phosh.service`, `squeekboard.service`, `dbus-system.service` — see
+[gpu.md](gpu.md#phosh-as-the-shell-env-only), files under `examples/phosh/`), or `openbox.service` when docked. Template units (`name@.service`, `%i`) are not supported.
 
 ## What the template ships (`templates-20261005c`)
 

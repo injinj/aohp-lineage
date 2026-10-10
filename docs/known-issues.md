@@ -103,9 +103,10 @@ in the foreground. Each widening creates a new `openclaw nodes approve` request.
 - OnePlus 13 only. GL via Mesa turnip/freedreno on `/dev/kgsl-3d0` works enforcing (`glxgears` 60 FPS vsynced); the env needs
   a Mesa ≥ 26 built with `-Dfreedreno-kmds=msm,kgsl` (lfdevs tarball over Debian's 25.0.7) and Termux:X11 installed separately
   (GPL-3). Recipe and sepolicy inventory: [gpu.md](gpu.md).
-- **Vulkan on-screen does not work** (`vkcube` asserts in `demo_prepare_buffers`; needs the non-legacy AHB presentation path +
-  gralloc rules). Off-screen Vulkan is fine.
-- `zink` is unusable (no `/dev/shm` in the env). Residual harmless denials: `vendor_sysfs_kgsl` symlink read (vendor policy is
+- Since dodge build-18: `/dev/shm` is a real per-container tmpfs, `zink` and `vkcube` work, Termux:X11 refreshes per frame
+  (build-16), and Phosh runs as a unit ([gpu.md](gpu.md#phosh-as-the-shell-env-only)). Still open: the phoc **compositor
+  cannot use the GPU** on the nested X11 backend (no DRI3 DRM fd on KGSL) — pixman only; Settings → Displays crashes.
+  Residual harmless denials: `vendor_sysfs_kgsl` symlink read (vendor policy is
   the OEM's on dodge), `vendor_overlay_file` stat (coredomain neverallow), `love`'s TCGETS ioctl on `/proc/*/mountinfo`.
 - Pixel 6: no GPU in the env yet (Mali has no open userspace; a host-side virgl proxy is scoped, not built).
 - Template units (`name@.service`) are not supported, so one unit per game/app.

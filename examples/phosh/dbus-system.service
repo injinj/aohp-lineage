@@ -1,0 +1,11 @@
+[Unit]
+Description=D-Bus system bus for the env (runs as root: the env cannot drop capabilities to messagebus)
+Before=phosh.service
+
+[Service]
+ExecStartPre=/bin/sh -c 'mkdir -p /run/dbus && rm -f /run/dbus/pid /run/dbus/system_bus_socket && dbus-uuidgen --ensure'
+ExecStart=/usr/bin/dbus-daemon --nofork --nopidfile --config-file=/etc/aohp/dbus-system.conf
+Restart=on-failure
+
+[Install]
+WantedBy=aohp.target

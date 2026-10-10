@@ -1,0 +1,6 @@
+#!/bin/sh
+# run by phosh.service inside dbus-run-session: publish the bus address for sibling units, then phosh
+echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS" > /tmp/runtime-root/session.env
+# a crashed Displays panel (no modes on the nested X11 output) must not be reopened on the next launch
+gsettings set org.gnome.Settings last-panel appearance 2>/dev/null
+exec /usr/libexec/phosh --unlocked
