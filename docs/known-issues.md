@@ -106,6 +106,8 @@ in the foreground. Each widening creates a new `openclaw nodes approve` request.
 - Since dodge build-18: `/dev/shm` is a real per-container tmpfs, `zink` and `vkcube` work, Termux:X11 refreshes per frame
   (build-16), and Phosh runs as a unit ([gpu.md](gpu.md#phosh-as-the-shell-env-only)). Still open: the phoc **compositor
   cannot use the GPU** on the nested X11 backend (no DRI3 DRM fd on KGSL) — pixman only; Settings → Displays crashes.
+  A GPU compositor *is* possible: patched gamescope composites Vulkan clients on the GPU ([gamescope.md](gamescope.md));
+  GL clients under it have no GLX (software Xwayland).
   Residual harmless denials: `vendor_sysfs_kgsl` symlink read (vendor policy is
   the OEM's on dodge), `vendor_overlay_file` stat (coredomain neverallow), `love`'s TCGETS ioctl on `/proc/*/mountinfo`.
 - Pixel 6: no GPU in the env yet (Mali has no open userspace; a host-side virgl proxy is scoped, not built).

@@ -75,14 +75,16 @@ Settings → Appearance / Accessibility / Keyboard / Date & Time. What is "weird
   bus (a UPower battery object fed by the Driver), not NetworkManager under netd.
 - *nested compositor* — Settings → **Displays crashes** (`cc-display-settings.c:469 (modes)`: phoc has no mode list on
   the nested X11 output), no brightness/rotation. Property of running on X11, not of the container.
-- *compositor on the GPU* — **not possible** on this backend: wlroots' X11 backend needs a DRM fd via DRI3, Termux:X11 has
-  none (Adreno here is KGSL, no render node), and the env's `/dev/dri` is `msm_drm`, the *display* controller, with no
+- *compositor on the GPU* — **not with phoc** on this backend: wlroots' X11 backend needs a DRM fd via DRI3, Termux:X11
+  has none (Adreno here is KGSL, no render node), and the env's `/dev/dri` is `msm_drm`, the *display* controller, with no
   Mesa driver. So phoc stays on pixman (CPU composition of client buffers); the clients themselves render on the GPU.
-  Games and Godot get the full GPU by running directly on `:0` as their own unit instead of inside Phosh.
+  Games and Godot get the full GPU by running directly on `:0` as their own unit instead of inside Phosh — or under
+  **gamescope**, which *does* composite on the GPU here because it is a Vulkan compositor presenting through the X11
+  Vulkan WSI; it needs a two-patch source build, see [gamescope.md](gamescope.md).
 
 ## Known gaps
 
-- Compositor on the GPU (above). `vkcube` and zink **work** since build-18 (the earlier `demo_prepare_buffers`
+- Compositor on the GPU: phoc no (above); gamescope **yes** with the patches in [gamescope.md](gamescope.md). `vkcube` and zink **work** since build-18 (the earlier `demo_prepare_buffers`
   assertion was `-legacy-drawing` + missing `/dev/shm`, not gralloc).
 - Surfaceless EGL under zink falls back to llvmpipe (nothing to present to); headless compute is turnip-direct anyway.
 - No window manager by default on a bare `:0` — each client fills the phone screen; Phosh is the answer for touch,
