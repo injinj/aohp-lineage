@@ -82,6 +82,22 @@ Settings → Appearance / Accessibility / Keyboard / Date & Time. What is "weird
   **gamescope**, which *does* composite on the GPU here because it is a Vulkan compositor presenting through the X11
   Vulkan WSI; it needs a two-patch source build, see [gamescope.md](gamescope.md).
 
+## Solana Saga (ingot, Adreno 730) — same recipe, verified 2026-10-22
+
+Steps 1–3 above run unchanged on ingot build-1 over ssh into the `oc` env (no USB needed for the headless proof):
+`/dev/kgsl-3d0` is `0666` uid 1000 as on dodge, `/sys/class/kgsl/kgsl-3d0/gpu_model` = `Adreno730v3`, kernel 5.10 GKI.
+After the apt set + the lfdevs `mesa-for-android-container_26.3.0-devel-20260824_debian_trixie_arm64.tar.gz` + `ldconfig`:
+
+- `vulkaninfo --summary` → `deviceName = Turnip Adreno (TM) 725`, `driverName = turnip Mesa driver`, Vulkan 1.4.359, Mesa 26.3.0-devel.
+  (Mesa names the SM8475 chip id "725"; it is the A730v3 and it is being driven — the `XDG_RUNTIME_DIR is invalid` line is
+  vulkaninfo noise.)
+- `MESA_LOADER_DRIVER_OVERRIDE=kgsl eglinfo -B -p surfaceless` → `freedreno`, renderer `FD725`, OpenGL 4.6 core.
+
+No ROM change was needed: the sepolicy/containerd rules above are platform-side and ingot build-1 already carries them.
+The A730 is an a7xx gen-1 target that Debian's own Mesa 25.0.7 already knows, so the tarball is needed only for the KGSL
+backend (not, as on dodge, for the GPU id as well). Not yet exercised on ingot: Termux:X11 / units / zink / gamescope
+(steps 4–5); expect them to follow dodge with a lower performance ceiling.
+
 ## Known gaps
 
 - Compositor on the GPU: phoc no (above); gamescope **yes** with the patches in [gamescope.md](gamescope.md). `vkcube` and zink **work** since build-18 (the earlier `demo_prepare_buffers`
