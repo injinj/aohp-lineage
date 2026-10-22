@@ -95,8 +95,18 @@ After the apt set + the lfdevs `mesa-for-android-container_26.3.0-devel-20260824
 
 No ROM change was needed: the sepolicy/containerd rules above are platform-side and ingot build-1 already carries them.
 The A730 is an a7xx gen-1 target that Debian's own Mesa 25.0.7 already knows, so the tarball is needed only for the KGSL
-backend (not, as on dodge, for the GPU id as well). Not yet exercised on ingot: Termux:X11 / units / zink / gamescope
-(steps 4–5); expect them to follow dodge with a lower performance ceiling.
+backend (not, as on dodge, for the GPU id as well).
+
+Steps 4–5 verified the same day with the phone on USB: Termux:X11 nightly `adb install -r -g`, then the dodge
+`x11.service` / `glxgears.service` / `xterm.service` / `x11.env` copied verbatim into the env (the env is named `oc` on
+both phones, so the `/data/aohp/envs/oc/` paths in `x11.service` did not need editing):
+
+- `glxgears.service` → `600 frames in 5.0 seconds = 119.988 FPS` (vsynced to the Saga's 120 Hz panel, the AHardwareBuffer
+  path: `LorieNative: Sent shared buffer width 1080 … height 1959`).
+- `MESA_LOADER_DRIVER_OVERRIDE=zink glxinfo -B` → `zink Vulkan 1.4(Turnip Adreno (TM) 725 (MESA_TURNIP))`, GL 4.6.
+- Trap (same on dodge): an X client started in the same second as `x11.service`, or before the Termux:X11 Activity has
+  attached its Surface, gets `couldn't open display :0` and the unit exits 255 — `systemctl restart glxgears` after
+  `am start -n com.termux.x11/.MainActivity` (or opening the app) is enough. Not tried on ingot: gamescope, Phosh.
 
 ## Known gaps
 
