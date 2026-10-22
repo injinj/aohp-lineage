@@ -31,9 +31,9 @@ app-operating agents Google, Honor and Xiaomi ship, are in [docs/linux-tool-use.
 
 | | |
 |---|---|
-| **ROM releases** | [Releases page](https://github.com/injinj/aohp-lineage/releases) - tags are `oriole-<lineage>-<date>-build<N>` (Pixel 6) and `dodge-<lineage>-<date>-build<N>` (OnePlus 13); the newest tag per device is the current build, and each release note says what changed and which build it supersedes. |
+| **ROM releases** | [Releases page](https://github.com/injinj/aohp-lineage/releases) - tags are `oriole-<lineage>-<date>-build<N>` (Pixel 6) and `dodge-<lineage>-<date>-build<N>` (OnePlus 13) and `ingot-<lineage>-<date>-build<N>` (Solana Saga); the newest tag per device is the current build, and each release note says what changed and which build it supersedes. |
 | Build from source | [docs/build.md](docs/build.md) |
-| Install from a release | [docs/install-oriole.md](docs/install-oriole.md) · [docs/install-dodge.md](docs/install-dodge.md) |
+| Install from a release | [docs/install-oriole.md](docs/install-oriole.md) · [docs/install-dodge.md](docs/install-dodge.md) · [docs/install-ingot.md](docs/install-ingot.md) |
 | First boot, provisioning the agent container, pairing the app | [docs/provisioning.md](docs/provisioning.md) |
 | Units: systemd-style services, timers, `systemctl` shim | [docs/units.md](docs/units.md) |
 | Known issues | [docs/known-issues.md](docs/known-issues.md) |
@@ -80,9 +80,11 @@ All platform/device branches are called `lineage-23.2-aohp` = LineageOS `lineage
 ## Quick start (install a release)
 
 1. Unlock the bootloader and bring the phone to the stock firmware level the LineageOS wiki requires
-   ([oriole](https://wiki.lineageos.org/devices/oriole/install/), [dodge](https://wiki.lineageos.org/devices/dodge/install/)).
+   ([oriole](https://wiki.lineageos.org/devices/oriole/install/), [dodge](https://wiki.lineageos.org/devices/dodge/install/),
+   [ingot](https://wiki.lineageos.org/devices/ingot/install/) — the Saga must be on stock Android 14 before unlocking).
 2. Download the device's release assets, `sha256sum -c SHA256SUMS` (dodge: `cat …zip.part0 …zip.part1 > …zip` first).
-3. Follow [docs/install-oriole.md](docs/install-oriole.md) or [docs/install-dodge.md](docs/install-dodge.md): fastboot the
+3. Follow [docs/install-oriole.md](docs/install-oriole.md), [docs/install-dodge.md](docs/install-dodge.md) or
+   [docs/install-ingot.md](docs/install-ingot.md): fastboot the
    boot images → Lineage recovery → factory reset → `adb sideload <zip>` → reboot.
 4. First boot: adb is on, no prompt; `aohp-containerd` and the Driver bridge are already running. Continue with
    [docs/provisioning.md](docs/provisioning.md) to create the agent container, provision OpenClaw and pair the app.
